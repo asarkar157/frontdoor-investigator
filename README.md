@@ -1,8 +1,17 @@
 # Frontdoor Investigator Agent
 
-This module creates the read-only investigator used by the phase-one Frontdoor workflow. It can inspect Kubernetes and, optionally, Jenkins. Jira is deliberately excluded because ticket intake and updates belong to the coordinator stage.
+This module creates the read-only investigator and its executable investigation workflow. It can inspect Kubernetes and, optionally, Jenkins. Jira is deliberately excluded because ticket intake and updates belong to the coordinator stage.
 
 The integration identities supplied to this module must be read-only. The persona and dangerous-operations policy provide defense in depth, but they do not replace least-privilege credentials at the integration layer.
+
+## Deployed resources
+
+- One `frontdoor-investigator` agent and daily budget.
+- Dangerous-operations policy attachment and optional PII policy attachment.
+- Four investigation runbook SOPs for scoping, Kubernetes evidence, Jenkins evidence, and synthesis.
+- One `frontdoor-investigation` workflow with all four stages bound to the investigator agent.
+
+The workflow requires `ticket_key` and `ticket_summary`. It is callable by an upstream coordinator or manually; it does not register a Jira trigger or update Jira directly.
 
 ## Usage
 

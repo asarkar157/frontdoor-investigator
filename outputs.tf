@@ -8,6 +8,26 @@ output "agent_name" {
   value       = sg_agent.investigator.name
 }
 
+output "workflow_id" {
+  description = "ID of the Frontdoor investigation workflow."
+  value       = sg_workflow.investigation.id
+}
+
+output "workflow_name" {
+  description = "Name of the Frontdoor investigation workflow."
+  value       = sg_workflow.investigation.name
+}
+
+output "runbook_names" {
+  description = "Runbook SOPs bound to the investigation workflow."
+  value = {
+    scope               = sg_runbook_sop.scope.name
+    kubernetes_evidence = sg_runbook_sop.kubernetes_evidence.name
+    jenkins_evidence    = sg_runbook_sop.jenkins_evidence.name
+    synthesis           = sg_runbook_sop.synthesis.name
+  }
+}
+
 output "integration_names" {
   description = "Integration names exposed to the investigator agent."
   value = {
