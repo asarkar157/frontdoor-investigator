@@ -31,7 +31,12 @@ output "runbook_names" {
 output "integration_names" {
   description = "Integration names exposed to the investigator agent."
   value = {
-    kubernetes = var.existing_kubernetes_integration_name
+    ubuntu_cli = var.existing_ubuntu_integration_name
     jenkins    = var.existing_jenkins_integration_name
   }
+}
+
+output "remote_runner_names" {
+  description = "Remote runners used for every kubectl operation."
+  value       = var.remote_runner_names
 }

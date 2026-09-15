@@ -27,13 +27,13 @@ variable "attach_data_risk_pii_policy" {
   default     = false
 }
 
-variable "existing_kubernetes_integration_name" {
-  description = "Name of an existing Kubernetes integration configured with read-only credentials."
+variable "existing_ubuntu_integration_name" {
+  description = "Name of the existing Ubuntu CLI integration used to run kubectl on the attached remote runner."
   type        = string
 
   validation {
-    condition     = trimspace(var.existing_kubernetes_integration_name) != ""
-    error_message = "existing_kubernetes_integration_name must not be empty."
+    condition     = trimspace(var.existing_ubuntu_integration_name) != ""
+    error_message = "existing_ubuntu_integration_name must not be empty."
   }
 }
 
@@ -43,14 +43,13 @@ variable "existing_jenkins_integration_name" {
   default     = ""
 }
 
-variable "kubernetes_readonly_tool_names" {
-  description = "Fully qualified Kubernetes read-tool names that may run without HITL approval. Wildcards are rejected."
-  type        = list(string)
-  default     = []
+variable "remote_shell_tool_name" {
+  description = "Exact Ubuntu CLI shell-tool name used for kubectl on the remote runner. Wildcards are rejected."
+  type        = string
 
   validation {
-    condition     = alltrue([for name in var.kubernetes_readonly_tool_names : trimspace(name) != "" && !strcontains(name, "*")])
-    error_message = "kubernetes_readonly_tool_names must contain non-empty exact tool names without wildcards."
+    condition     = trimspace(var.remote_shell_tool_name) != "" && !strcontains(var.remote_shell_tool_name, "*")
+    error_message = "remote_shell_tool_name must be a non-empty exact tool name without wildcards."
   }
 }
 
@@ -66,9 +65,16 @@ variable "jenkins_readonly_tool_names" {
 }
 
 variable "remote_runner_names" {
-  description = "Existing remote runners that can reach the private integrations."
+  description = "A single existing remote runner whose shell environment contains kubectl and a read-only kubeconfig."
   type        = set(string)
-  default     = []
+
+  validation {
+    condition = (
+      length(var.remote_runner_names) == 1
+      && alltrue([for name in var.remote_runner_names : trimspace(name) != ""])
+    )
+    error_message = "remote_runner_names must contain exactly one non-empty runner name."
+  }
 }
 
 variable "name_suffix" {

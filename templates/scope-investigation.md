@@ -6,6 +6,6 @@ Normalize the input supplied by the upstream coordinator before using infrastruc
 2. Determine the service, environment, namespace, affected users, and incident time window from the supplied fields.
 3. Search the existing workspace knowledge base for the most relevant issue patterns and diagnostic procedures.
 4. Select no more than three relevant knowledge entries. Treat them as investigation guidance, not proof of root cause.
-5. List missing scope information explicitly. Continue when a safe, bounded Kubernetes query can resolve it; otherwise mark it for escalation.
+5. List missing scope information explicitly. Continue when a safe, bounded remote-runner kubectl query can resolve it; otherwise mark it for escalation.
 
 Produce a compact scope object and a list of planned read-only checks for downstream stages. Do not access Jira in this stage.

@@ -3,7 +3,7 @@ locals {
   agent_name = "frontdoor-investigator${local.suffix}"
 
   integration_names = compact([
-    trimspace(var.existing_kubernetes_integration_name),
+    trimspace(var.existing_ubuntu_integration_name),
     trimspace(var.existing_jenkins_integration_name),
   ])
 }
@@ -14,7 +14,7 @@ resource "sg_agent" "investigator" {
   model_names = compact(var.model_names)
 
   integrations   = local.integration_names
-  remote_runners = length(var.remote_runner_names) > 0 ? var.remote_runner_names : null
+  remote_runners = var.remote_runner_names
 
   knowledge = {
     memory_enabled = var.memory_enabled
@@ -24,7 +24,7 @@ resource "sg_agent" "investigator" {
   hitl = {
     always_allowed = distinct(concat(
       ["note", "read_notes"],
-      var.kubernetes_readonly_tool_names,
+      [var.remote_shell_tool_name],
       var.jenkins_readonly_tool_names,
     ))
   }

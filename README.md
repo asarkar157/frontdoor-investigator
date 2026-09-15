@@ -1,6 +1,6 @@
 # Frontdoor Investigator Agent
 
-This module creates the read-only investigator and its executable investigation workflow. It can inspect Kubernetes and, optionally, Jenkins. Jira is deliberately excluded because ticket intake and updates belong to the coordinator stage.
+This module creates the read-only investigator and its executable investigation workflow. It inspects Kubernetes exclusively by running kubectl through an Ubuntu CLI integration on an attached remote runner, and it can optionally inspect Jenkins. Jira is deliberately excluded because ticket intake and updates belong to the coordinator stage.
 
 The integration identities supplied to this module must be read-only. The persona and dangerous-operations policy provide defense in depth, but they do not replace least-privilege credentials at the integration layer.
 
@@ -8,7 +8,7 @@ The integration identities supplied to this module must be read-only. The person
 
 - One `frontdoor-investigator` agent and daily budget.
 - Dangerous-operations policy attachment and optional PII policy attachment.
-- Four investigation runbook SOPs for scoping, Kubernetes evidence, Jenkins evidence, and synthesis.
+- Four investigation runbook SOPs for scoping, remote-runner kubectl evidence, Jenkins evidence, and synthesis.
 - One `frontdoor-investigation` workflow with all four stages bound to the investigator agent.
 
 The workflow requires `ticket_key` and `ticket_summary`. It is callable by an upstream coordinator or manually; it does not register a Jira trigger or update Jira directly.
@@ -22,16 +22,11 @@ module "frontdoor_investigator" {
   model_names = module.foundation.model_names
   policy_ids  = module.policies.policy_ids
 
-  existing_kubernetes_integration_name = "production-kubernetes-readonly"
-  existing_jenkins_integration_name    = "production-jenkins-readonly"
-  remote_runner_names                  = ["private-network-runner"]
+  existing_ubuntu_integration_name  = "production-ubuntu-cli"
+  existing_jenkins_integration_name = "production-jenkins-readonly"
+  remote_runner_names               = ["private-network-runner"]
 
-  kubernetes_readonly_tool_names = [
-    "production-kubernetes-readonly_get_pods",
-    "production-kubernetes-readonly_describe_pod",
-    "production-kubernetes-readonly_get_pod_logs",
-    "production-kubernetes-readonly_list_events",
-  ]
+  remote_shell_tool_name = "production-ubuntu-cli_execute_command"
 
   jenkins_readonly_tool_names = [
     "production-jenkins-readonly_get_build",
@@ -42,7 +37,9 @@ module "frontdoor_investigator" {
 }
 ```
 
-Use the exact tool names exposed by the tenant integrations; the names above illustrate the expected form. Keep the allow-lists limited to verified read operations. Wildcards are rejected so a future write tool cannot become auto-approved accidentally.
+Use the exact tool names exposed by the tenant integrations; the names above illustrate the expected form. Wildcards are rejected. The Ubuntu CLI integration and remote runner are both required so the agent has one explicit Kubernetes execution path.
+
+The remote runner must provide `kubectl` and a kubeconfig backed by a read-only Kubernetes identity. Credential-level RBAC is mandatory because auto-approving the shell tool permits unattended investigation; persona and policy controls are additional safeguards, not a substitute for read-only credentials.
 
 Omit `existing_jenkins_integration_name` when Jenkins is unavailable. In that configuration, the investigator still produces a useful Kubernetes-backed diagnosis but returns Jenkins-specific evidence or execution recommendations as missing information.
 

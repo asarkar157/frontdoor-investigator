@@ -34,7 +34,7 @@ resource "sg_runbook_sop" "synthesis" {
 resource "sg_workflow" "investigation" {
   name        = local.workflow_name
   domain      = "incident-response"
-  description = "Read-only investigation of a normalized Frontdoor ticket using workspace knowledge, Kubernetes evidence, and optional Jenkins evidence."
+  description = "Read-only investigation of a normalized Frontdoor ticket using workspace knowledge, remote-runner kubectl evidence, and optional Jenkins evidence."
   approve     = true
 
   metadata = {
@@ -71,7 +71,7 @@ resource "sg_workflow" "investigation" {
     },
     {
       stage_id    = "collect-kubernetes-evidence"
-      description = "Collect current read-only Kubernetes evidence for the scoped incident."
+      description = "Collect current Kubernetes evidence using kubectl through the attached remote runner."
       required    = true
     },
     {
@@ -98,7 +98,7 @@ resource "sg_workflow" "investigation" {
       agent_ref        = sg_agent.investigator.name
       stage_depends_on = ["scope-investigation"]
       runbook_refs     = [sg_runbook_sop.kubernetes_evidence.name]
-      note             = "Use only approved read-only Kubernetes tools."
+      note             = "Run every Kubernetes operation as a bounded read-only kubectl command through the attached remote runner; never look for a native Kubernetes integration."
     },
     {
       stage_id         = "collect-jenkins-evidence"
