@@ -8,6 +8,44 @@ variable "model_names" {
   }
 }
 
+variable "existing_jira_integration_name" {
+  description = "Existing Jira integration attached only to the ticket coordinator for reading tickets and adding clarification comments."
+  type        = string
+
+  validation {
+    condition     = trimspace(var.existing_jira_integration_name) != ""
+    error_message = "existing_jira_integration_name must not be empty."
+  }
+}
+
+variable "jira_v2_tools" {
+  description = "Exact tool names verified to use Jira REST API v2: read issue, paginate comments, and add a comment. No wildcard or v3-only tools."
+  type = object({
+    read_issue    = string
+    read_comments = string
+    add_comment   = string
+  })
+
+  validation {
+    condition = alltrue([
+      for name in values(var.jira_v2_tools) :
+      trimspace(name) != "" && name == trimspace(name) && length(regexall("[?*]", name)) == 0
+    ])
+    error_message = "jira_v2_tools requires exact, non-empty tool names without surrounding whitespace or wildcards."
+  }
+}
+
+variable "coordinator_daily_budget" {
+  description = "Daily USD limit for the Jira ticket coordinator."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.coordinator_daily_budget > 0
+    error_message = "coordinator_daily_budget must be greater than zero USD."
+  }
+}
+
 variable "policy_ids" {
   description = "Existing Aiden policy IDs to attach to the investigator."
   type = object({
@@ -22,7 +60,7 @@ variable "policy_ids" {
 }
 
 variable "attach_data_risk_pii_policy" {
-  description = "Attach policy_ids.data_risk_pii when a non-empty ID is supplied."
+  description = "Attach the PII policy to both agents; requires a non-empty policy_ids.data_risk_pii."
   type        = bool
   default     = false
 }

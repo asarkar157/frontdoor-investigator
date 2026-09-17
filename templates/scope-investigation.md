@@ -2,6 +2,8 @@
 
 Normalize the input supplied by the upstream coordinator before using infrastructure tools.
 
+Read ticket_assessment from assess-ticket. Use its current Jira fields in preference to stale invocation fields. Carry diagnostics_allowed, questions, and operator_blockers into the scope output. If diagnostics_allowed is false or the assessment is invalid/missing, do not query infrastructure; return bounded known scope and unresolved gaps. Do not try to bypass this decision through knowledge-base suggestions.
+
 1. Preserve `ticket_key` and summarize the reported symptom without inventing missing facts.
 2. Determine the service, environment, namespace, affected users, and incident time window from the supplied fields.
 3. Search the existing workspace knowledge base for the most relevant issue patterns and diagnostic procedures.

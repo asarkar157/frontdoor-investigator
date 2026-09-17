@@ -34,15 +34,16 @@ resource "sg_runbook_sop" "synthesis" {
 resource "sg_workflow" "investigation" {
   name        = local.workflow_name
   domain      = "incident-response"
-  description = "Read-only investigation of a normalized Frontdoor ticket using workspace knowledge, remote-runner kubectl evidence, and optional Jenkins evidence."
+  description = "Assess a Frontdoor ticket, investigate with read-only remote-runner kubectl and optional Jenkins, and request specific missing developer information through Jira API v2."
   approve     = true
 
   metadata = {
     planner_max_tool_iterations = "40"
   }
 
-  required_inputs = ["ticket_key", "ticket_summary"]
+  required_inputs = ["ticket_key"]
   optional_inputs = [
+    "ticket_summary",
     "ticket_description",
     "service",
     "environment",
@@ -52,10 +53,12 @@ resource "sg_workflow" "investigation" {
   ]
 
   runbook_refs = [
+    sg_runbook_sop.assess_ticket.name,
     sg_runbook_sop.scope.name,
     sg_runbook_sop.kubernetes_evidence.name,
     sg_runbook_sop.jenkins_evidence.name,
     sg_runbook_sop.synthesis.name,
+    sg_runbook_sop.request_information.name,
   ]
 
   example_queries = [
@@ -64,6 +67,11 @@ resource "sg_workflow" "investigation" {
   ]
 
   stages = [
+    {
+      stage_id    = "assess-ticket"
+      description = "Read the current Jira v2 ticket and comments; assess actionable scope and identify specific information gaps."
+      required    = true
+    },
     {
       stage_id    = "scope-investigation"
       description = "Normalize the supplied ticket context and identify relevant workspace knowledge."
@@ -84,14 +92,26 @@ resource "sg_workflow" "investigation" {
       description = "Rank supported hypotheses and produce the structured investigation report."
       required    = true
     },
+    {
+      stage_id    = "request-information"
+      description = "Recheck current Jira v2 comments and post only new, unanswered developer questions that block investigation. Otherwise return a no-op result."
+      required    = true
+    },
   ]
 
   stage_bindings = [
     {
-      stage_id     = "scope-investigation"
-      agent_ref    = sg_agent.investigator.name
-      runbook_refs = [sg_runbook_sop.scope.name]
-      note         = "Establish scope and use the existing workspace knowledge base for diagnostic guidance."
+      stage_id     = "assess-ticket"
+      agent_ref    = sg_agent.ticket_coordinator.name
+      runbook_refs = [sg_runbook_sop.assess_ticket.name]
+      note         = "Produce ticket_assessment and normalized ticket context for every downstream stage; Jira v2 reads only at this stage."
+    },
+    {
+      stage_id         = "scope-investigation"
+      stage_depends_on = ["assess-ticket"]
+      agent_ref        = sg_agent.investigator.name
+      runbook_refs     = [sg_runbook_sop.scope.name]
+      note             = "Establish scope and use the existing workspace knowledge base for diagnostic guidance."
     },
     {
       stage_id         = "collect-kubernetes-evidence"
@@ -113,6 +133,13 @@ resource "sg_workflow" "investigation" {
       stage_depends_on = ["collect-kubernetes-evidence", "collect-jenkins-evidence"]
       runbook_refs     = [sg_runbook_sop.synthesis.name]
       note             = "Return the investigation_report JSON contract defined by the investigator persona."
+    },
+    {
+      stage_id         = "request-information"
+      agent_ref        = sg_agent.ticket_coordinator.name
+      stage_depends_on = ["synthesize-investigation"]
+      runbook_refs     = [sg_runbook_sop.request_information.name]
+      note             = "Use ticket_assessment and investigation_report; preserve the report in final output alongside clarification_result. Post at most one Jira v2 clarification comment per execution."
     },
   ]
 }

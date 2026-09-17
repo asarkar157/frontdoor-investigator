@@ -43,9 +43,16 @@ resource "sg_agent_policy_attachment" "dangerous_ops" {
 }
 
 resource "sg_agent_policy_attachment" "data_risk_pii" {
-  count = var.attach_data_risk_pii_policy && trimspace(var.policy_ids.data_risk_pii) != "" ? 1 : 0
+  count = var.attach_data_risk_pii_policy ? 1 : 0
 
   agent_name = sg_agent.investigator.name
   policy_id  = var.policy_ids.data_risk_pii
   enabled    = true
+
+  lifecycle {
+    precondition {
+      condition     = trimspace(var.policy_ids.data_risk_pii) != ""
+      error_message = "Enabling the PII policy requires a non-empty policy_ids.data_risk_pii."
+    }
+  }
 }

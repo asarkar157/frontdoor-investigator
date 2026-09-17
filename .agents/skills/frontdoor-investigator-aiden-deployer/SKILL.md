@@ -29,7 +29,7 @@ Use the UUID from the single case-insensitive exact match as provider `project_i
 ## Deployment boundaries
 
 - Do not create, replace, upload, or modify the workspace's Jira integration or knowledge-base documents. They are pre-existing and outside this module's ownership.
-- Do not attach Jira to the investigator. Jira intake and updates belong to an upstream coordinator workflow.
+- Attach the existing Jira integration only to the ticket coordinator in this workflow. Verify the configured read-issue, paginated read-comments, and add-comment tools support REST API v2; never substitute v3-only tools. Only clarification comments are permitted writes.
 - Do not use or create a native Kubernetes integration for this agent.
 - Route every Kubernetes operation through the existing Ubuntu CLI integration attached to exactly one remote runner.
 - Require `kubectl` and a kubeconfig backed by read-only Kubernetes RBAC in the runner environment.
@@ -41,6 +41,7 @@ Use the UUID from the single case-insensitive exact match as provider `project_i
 Before composing a plan, inspect the target workspace and any Terraform state that already manages it. Resolve and reuse:
 
 - At least one existing model name.
+- The existing Jira integration name and exact v2-capable tools for issue reads, comment pagination, and comment creation. Verify developer replies and all prior comments are readable. Tool names alone do not prove API-version compatibility.
 - The existing dangerous-operations policy ID.
 - The optional data-risk/PII policy ID when attachment is requested.
 - The existing Ubuntu CLI integration name that exposes the shell execution tool.
@@ -79,6 +80,8 @@ module "frontdoor_investigator" {
   source = "git::https://github.com/asarkar157/frontdoor-investigator.git?ref=<tag-or-commit>"
 
   model_names = local.existing_model_names
+  existing_jira_integration_name = local.jira_integration_name
+  jira_v2_tools = local.jira_v2_tools
   policy_ids = {
     dangerous_ops = local.dangerous_ops_policy_id
     data_risk_pii = local.data_risk_pii_policy_id
@@ -107,7 +110,7 @@ Do not run `tofu apply` directly from this repository's module root without a de
 4. Abort on any delete, replacement, unrelated update, provider/project drift, Jira change, knowledge-base change, native Kubernetes integration, or unexpected integration/runner creation.
 5. Apply only the reviewed saved plan with `tofu apply tfplan`.
 
-Expected managed resources are one investigator agent, its daily budget, policy attachments, four runbook SOPs, and one four-stage investigation workflow.
+Expected managed resources are the investigator and ticket coordinator, two daily budgets, their policy attachments, six runbook SOPs, and one six-stage investigation workflow. Keep the existing workflow/agent addresses stable during upgrades. Callers must now supply existing_jira_integration_name and jira_v2_tools.
 
 ## Verify
 
@@ -117,5 +120,7 @@ After apply:
 - Confirm there were no deletes or replacements.
 - Confirm the agent exposes the Ubuntu CLI integration, not a native Kubernetes integration.
 - Confirm exactly one remote runner is attached.
-- Confirm the workflow stages are `scope-investigation`, `collect-kubernetes-evidence`, `collect-jenkins-evidence`, and `synthesize-investigation`.
+- Confirm the workflow starts with `assess-ticket`, continues through `scope-investigation`, `collect-kubernetes-evidence`, `collect-jenkins-evidence`, and `synthesize-investigation`, and ends with `request-information`. Only the first and last stages bind to the ticket coordinator.
+- Run the offline mocked plan tests with `terraform test` (Terraform 1.7+). OpenTofu 1.11.5 with StackGen 0.1.41 fails initialization for this mock suite, although `tofu validate` works. For an authorized runtime test, follow tests/clarification-cases.md at the repository root. Check API v2 requests, blocked evidence-stage behavior, targeted questions, and duplicate suppression. These are agent/tool behaviors, not guarantees from Terraform validation.
+- This module creates no webhook or reply-resumption rule. An external caller must invoke it again after developer replies, filter automation-authored comments, and serialize executions per ticket to reduce concurrent duplicate comments.
 - Do not run a live investigation unless the user also authorizes that execution.

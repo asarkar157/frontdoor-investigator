@@ -2,6 +2,8 @@
 
 Collect only the Kubernetes evidence needed to evaluate the scoped hypotheses. Every Kubernetes operation must run as a kubectl command through the Ubuntu CLI integration on the attached remote runner. Do not search for or use a native Kubernetes integration.
 
+First check the upstream scope and ticket_assessment. If diagnostics_allowed is not explicitly true for this ticket, return a JSON evidence result with status blocked (or invalid_assessment), no observations, and the known blockers, without invoking any tools. This is a completed stage, not a workflow abort. When queries fail due to runner, credentials, or access problems, report operator_blockers, not missing developer detail.
+
 1. Confirm the remote runner, kubectl context, environment, namespace, workload, and time window before querying.
 2. Submit one command per shell-tool call. Each command must begin with `kubectl` and must not use `bash`, `sh`, command chaining, substitution, pipes, or redirection.
 3. Use only `kubectl get`, `kubectl describe`, `kubectl logs`, `kubectl rollout status`, `kubectl rollout history`, and bounded `kubectl top` operations.
