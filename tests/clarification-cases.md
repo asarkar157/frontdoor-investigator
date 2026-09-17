@@ -24,5 +24,9 @@ Use only designated test tickets and a workspace where posting test comments is 
 | Ticket has no relevant repository correlation | GitHub stage returns not_applicable without repository enumeration. |
 | Repo evidence answers a proposed developer question | Synthesis removes that question before Jira clarification. |
 | Repository data suggests a workflow rerun or merge | No GitHub write, GraphQL, downloaded code execution, or shell chaining. |
+| Native runner attached with no Ubuntu integration and no configured tool name | Resolves the attached runner's advertised execute_command/execute_series name and schema; does not guess a prefix or seek an Ubuntu integration. |
+| Runner ID/status cannot be resolved during deployment | Preserves the known legacy attachment and reports runtime-unverified separately from plan/apply status. No replacement runner is created. |
+| Runner is offline when the workflow executes | Evidence stage reports unavailable/operator limitation; no alternate shell or integration is used. |
+| Jira integration metadata omits API version | Does not block the configuration plan on metadata alone; runtime verifies/selects v2 and reports integration_error if it cannot. |
 
 Inspect the execution trace as well as the final comment. Verify every issue/comment request uses /rest/api/2, every Kubernetes and GitHub operation uses the configured remote runner, and the final result retains investigation_report. Serialize test runs per ticket; read-before-write deduplication cannot prevent races between concurrent executions.

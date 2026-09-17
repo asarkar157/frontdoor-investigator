@@ -19,7 +19,7 @@ variable "existing_jira_integration_name" {
 }
 
 variable "jira_v2_tools" {
-  description = "Exact tool names verified to use Jira REST API v2: read issue, paginate comments, and add a comment. No wildcard or v3-only tools."
+  description = "Actual Jira tool names for issue reads, comment pagination, and comment creation. Runtime must select/verify API v2; missing version metadata alone does not prevent configuration deployment."
   type = object({
     read_issue    = string
     read_comments = string
@@ -66,13 +66,9 @@ variable "attach_data_risk_pii_policy" {
 }
 
 variable "existing_ubuntu_integration_name" {
-  description = "Name of the existing Ubuntu CLI integration used for kubectl and GitHub API calls on the attached remote runner."
+  description = "Optional legacy shell integration, only for deployments that already route it to the runner. Native runner shell tools require no Ubuntu integration."
   type        = string
-
-  validation {
-    condition     = trimspace(var.existing_ubuntu_integration_name) != ""
-    error_message = "existing_ubuntu_integration_name must not be empty."
-  }
+  default     = ""
 }
 
 variable "existing_jenkins_integration_name" {
@@ -82,12 +78,13 @@ variable "existing_jenkins_integration_name" {
 }
 
 variable "remote_shell_tool_name" {
-  description = "Exact Ubuntu CLI shell-tool name used for kubectl and gh api on the remote runner. Wildcards are rejected."
+  description = "Optional exact runner shell tool name, if known. When empty, discover execute_command/execute_series on the attached runner at runtime; no inferred tool is auto-approved."
   type        = string
+  default     = ""
 
   validation {
-    condition     = trimspace(var.remote_shell_tool_name) != "" && !strcontains(var.remote_shell_tool_name, "*")
-    error_message = "remote_shell_tool_name must be a non-empty exact tool name without wildcards."
+    condition     = var.remote_shell_tool_name == trimspace(var.remote_shell_tool_name) && length(regexall("[?*]", var.remote_shell_tool_name)) == 0
+    error_message = "remote_shell_tool_name must be empty or an exact tool name without whitespace padding or wildcards."
   }
 }
 
@@ -103,7 +100,7 @@ variable "jenkins_readonly_tool_names" {
 }
 
 variable "remote_runner_names" {
-  description = "A single existing remote runner with kubectl/read-only kubeconfig and gh with read-only GitHub authentication for repository evidence."
+  description = "One attached runner name or identifier, preserved from the existing agent/state when available. Runtime requires kubectl, gh, and their credentials; no runners API lookup is required to plan."
   type        = set(string)
 
   validation {

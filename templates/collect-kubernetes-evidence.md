@@ -1,6 +1,6 @@
 # Collect Kubernetes Evidence
 
-Collect only the Kubernetes evidence needed to evaluate the scoped hypotheses. Every Kubernetes operation must run as a kubectl command through the Ubuntu CLI integration on the attached remote runner. Do not search for or use a native Kubernetes integration.
+Collect only the Kubernetes evidence needed to evaluate the scoped hypotheses. Every Kubernetes operation must run as a kubectl command through the attached runner's shell capability. No Ubuntu CLI integration is required. Use the configured shell tool or resolve the runner's advertised execute_command/execute_series tool and inspect its schema; never invent the tool name. Do not search for or use a native Kubernetes integration.
 
 First check the upstream scope and ticket_assessment. If diagnostics_allowed is not explicitly true for this ticket, return a JSON evidence result with status blocked (or invalid_assessment), no observations, and the known blockers, without invoking any tools. This is a completed stage, not a workflow abort. When queries fail due to runner, credentials, or access problems, report operator_blockers, not missing developer detail.
 

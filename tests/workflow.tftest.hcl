@@ -108,6 +108,54 @@ run "reject_github_url_as_hostname" {
   expect_failures = [var.github_hostname]
 }
 
+run "legacy_runner_attachment_without_shell_integration" {
+  command   = plan
+  providers = { sg = sg.offline }
+  variables {
+    existing_ubuntu_integration_name = ""
+    remote_shell_tool_name           = ""
+    remote_runner_names              = ["celtic-k8s-runner"]
+  }
+
+  assert {
+    condition = (
+      length(sg_agent.investigator.integrations) == 0
+      && toset(sg_agent.investigator.remote_runners) == toset(["celtic-k8s-runner"])
+      && toset(sg_agent.investigator.hitl.always_allowed) == toset(["note", "read_notes"])
+      && strcontains(sg_agent.investigator.persona, "celtic-k8s-runner")
+      && strcontains(sg_runbook_sop.github_evidence.description, "resolve its exact name and input schema at runtime")
+    )
+    error_message = "A legacy runner attachment must plan without a shell integration, tool lookup, or inferred auto-approval."
+  }
+}
+
+run "native_runner_with_explicit_tool" {
+  command   = plan
+  providers = { sg = sg.offline }
+  variables {
+    existing_ubuntu_integration_name = ""
+    remote_shell_tool_name           = "runner-id_execute_command"
+  }
+
+  assert {
+    condition = (
+      length(sg_agent.investigator.integrations) == 0
+      && contains(sg_agent.investigator.hitl.always_allowed, "runner-id_execute_command")
+      && strcontains(sg_runbook_sop.github_evidence.description, "runner-id_execute_command")
+    )
+    error_message = "A known runner tool must not require an Ubuntu integration to be attached."
+  }
+}
+
+run "reject_shell_wildcard" {
+  command   = plan
+  providers = { sg = sg.offline }
+  variables {
+    remote_shell_tool_name = "celtic-k8s-runner_*"
+  }
+  expect_failures = [var.remote_shell_tool_name]
+}
+
 run "reject_jira_wildcard" {
   command   = plan
   providers = { sg = sg.offline }

@@ -36,7 +36,7 @@ resource "sg_runbook_sop" "github_evidence" {
   approve = true
   description = trimspace(templatefile("${path.module}/templates/collect-github-evidence.md", {
     github_hostname = var.github_hostname
-    shell_tool      = var.remote_shell_tool_name
+    shell_tool      = local.shell_tool_instruction
     runner_name     = one(var.remote_runner_names)
   }))
 }

@@ -51,11 +51,10 @@ module "frontdoor_investigator" {
     add_comment   = "existing-frontdoor-jira_add_comment"
   }
 
-  existing_ubuntu_integration_name  = "production-ubuntu-cli"
   existing_jenkins_integration_name = "production-jenkins-readonly"
-  remote_runner_names               = ["private-network-runner"]
+  remote_runner_names               = ["celtic-k8s-runner"] # Reuse the existing attachment.
 
-  remote_shell_tool_name = "production-ubuntu-cli_execute_command"
+  # Omit remote_shell_tool_name to discover the runner's native shell at runtime.
   github_hostname        = "github.com" # Set the trusted Enterprise hostname when applicable.
 
   jenkins_readonly_tool_names = [
@@ -67,15 +66,17 @@ module "frontdoor_investigator" {
 }
 ```
 
-Use the exact tool names exposed by the tenant integrations; the names above illustrate the expected form. Wildcards are rejected. The Ubuntu CLI integration and remote runner are both required so the agent has one explicit Kubernetes execution path.
+Use the actual Jira and Jenkins tool names; the names above illustrate the expected form. For Kubernetes and GitHub, the attached runner provides native execute_command/execute_series tools. No Ubuntu CLI integration is required. Preserve the existing runner name/identifier; runtime tool names may be qualified by a different runner ID and must not be guessed from its display name.
 
-The three Jira tools must support v2 issue reads, paginated comment reads, and comment creation. The coordinator persona renders their configured names and requires `/rest/api/2`, with a string `body` for comments. See the [Jira v2 comment API example](https://developer.atlassian.com/server/jira/platform/jira-rest-api-example-add-comment-8946422/). Terraform cannot verify a tool's implementation from its name. If the existing tool is v3-only or cannot expose/select its version, deployment requires a compatible tool; the agent must return `integration_error` rather than fall back to v3. These exact tools are auto-approved, so validate their capabilities before deployment.
+`remote_shell_tool_name` is optional. When omitted, the agent discovers the attached runner's shell capability and input schema at runtime; no unknown tool or wildcard is auto-approved. Existing runtime approval policies still apply. Set an exact tool name only when it is known. `existing_ubuntu_integration_name` is retained as an optional compatibility input for an already-working legacy shell route; it is not a required dependency.
 
-The remote runner must provide `kubectl` and a kubeconfig backed by a read-only Kubernetes identity. Credential-level RBAC is mandatory because auto-approving the shell tool permits unattended investigation; persona and policy controls are additional safeguards, not a substitute for read-only credentials.
+The three Jira tools must support v2 issue reads, paginated comment reads, and comment creation at runtime. The coordinator persona renders their configured names and requires `/rest/api/2`, with a string `body` for comments. See the [Jira v2 comment API example](https://developer.atlassian.com/server/jira/platform/jira-rest-api-example-add-comment-8946422/). Missing API-version metadata is not evidence of incompatibility and does not prevent deploying this configuration. Record the capability as unverified until tool schemas/documentation or an authorized v2 read establish support. Known v3-only tools remain incompatible. At runtime the agent must return `integration_error` if it cannot select/verify v2, rather than fall back to v3.
+
+At runtime the remote runner must provide `kubectl` and a kubeconfig backed by a read-only Kubernetes identity. The shell tool is general-purpose, not inherently read-only. Read-only credentials and the command restrictions provide the boundary; an exact shell tool allow-list alone does not restrict its command arguments.
 
 ## GitHub through the runner
 
-The same Ubuntu CLI shell tool and single remote runner handle every GitHub request using `gh api --hostname <configured-host> --method GET`. `github_hostname` defaults to `github.com`; set it to the trusted GitHub Enterprise hostname for your workspace. Ticket text cannot override this host. Reads are scoped to the ticket's repository, commits, PRs, releases, and check/run metadata. The workflow does not merge, comment on, or modify GitHub objects.
+The attached runner's shell handles every GitHub request using `gh api --hostname <configured-host> --method GET`. `github_hostname` defaults to `github.com`; set it to the trusted GitHub Enterprise hostname for your workspace. Ticket text cannot override this host. Reads are scoped to the ticket's repository, commits, PRs, releases, and check/run metadata. The workflow does not merge, comment on, or modify GitHub objects.
 
 Install `gh` and provide host-appropriate, repository-scoped read-only authentication in the actual runner shell environment. GitHub CLI supports `GH_TOKEN`/`GITHUB_TOKEN` for github.com and `GH_ENTERPRISE_TOKEN`/`GITHUB_ENTERPRISE_TOKEN` for Enterprise Server; see the [CLI environment reference](https://cli.github.com/manual/gh_help_environment). Credentials are consumed implicitly and must not be put in Terraform variables, command arguments, or output. Existing host-scoped CLI authentication is also supported. The configured shell tool must execute on the named runner; the Terraform module does not install gh, inject credentials, or verify routing itself.
 
@@ -92,5 +93,7 @@ The workspace must already contain the Frontdoor knowledge-base documents and Ji
 ## Upgrade and verification
 
 Existing callers must now supply `existing_jira_integration_name` and `jira_v2_tools`. Agent and workflow resource addresses remain stable. Enabling PII requires a non-empty PII policy ID for both agents.
+
+For an existing agent attached to `celtic-k8s-runner`, preserve that attachment in the same Terraform state root. Failure to resolve its ID/status through a separate runners API does not prove it is missing, and this module performs no runner data-source lookup. A plan/apply can update the configuration while runtime readiness remains unverified. If the runner is offline or has no callable shell at execution time, the workflow reports an operator limitation. No replacement runner or Ubuntu integration should be created to work around missing discovery metadata.
 
 Run `tofu fmt -check -recursive`, `tofu validate`, and `terraform test` (Terraform 1.7+). Tests use a mocked provider with plan-only runs and do not contact a workspace. OpenTofu 1.11.5 with StackGen 0.1.41 fails provider initialization in this mocked test suite; use Terraform for the tests. Runtime acceptance cases are in [tests/clarification-cases.md](tests/clarification-cases.md); they require an explicitly selected test ticket and are not covered by Terraform validation.
