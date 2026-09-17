@@ -33,6 +33,7 @@ Use the UUID from the single case-insensitive exact match as provider `project_i
 - Do not use or create a native Kubernetes integration for this agent.
 - Route every Kubernetes operation through the existing Ubuntu CLI integration attached to exactly one remote runner.
 - Require `kubectl` and a kubeconfig backed by read-only Kubernetes RBAC in the runner environment.
+- Route all GitHub REST GET calls through the same remote-runner shell using gh api. Never create, attach, or fall back to a GitHub integration. Discover the trusted GitHub hostname and set github_hostname for Enterprise; never derive an authenticated destination from arbitrary ticket text.
 - Do not commit credentials, generated plans, state, or provider caches.
 - Do not delete or replace existing Aiden resources unless the user explicitly requests that destructive action.
 
@@ -47,6 +48,7 @@ Before composing a plan, inspect the target workspace and any Terraform state th
 - The existing Ubuntu CLI integration name that exposes the shell execution tool.
 - The exact shell tool name, without a wildcard.
 - Exactly one existing remote runner name; confirm it is online and can execute `kubectl` with read-only credentials.
+- The runner shell must also provide gh and host-scoped read-only GitHub authentication for relevant repositories. Reuse existing credentials without printing them or adding tokens to Terraform or command arguments. If unavailable, report the limitation; the workflow records GitHub evidence as unavailable rather than using a GitHub integration. Confirm the shell tool actually executes on the attached runner.
 - The optional existing Jenkins integration and exact read-only Jenkins tool names.
 
 If a required dependency cannot be discovered, stop and report the exact missing resource. Do not silently provision a replacement or fall back to native Kubernetes access.
@@ -90,6 +92,7 @@ module "frontdoor_investigator" {
   existing_ubuntu_integration_name  = local.ubuntu_cli_integration_name
   remote_shell_tool_name            = local.ubuntu_cli_execute_tool_name
   remote_runner_names               = [local.remote_runner_name]
+  github_hostname                   = local.github_hostname
   existing_jenkins_integration_name = local.jenkins_integration_name
   jenkins_readonly_tool_names       = local.jenkins_readonly_tool_names
 }
@@ -110,7 +113,7 @@ Do not run `tofu apply` directly from this repository's module root without a de
 4. Abort on any delete, replacement, unrelated update, provider/project drift, Jira change, knowledge-base change, native Kubernetes integration, or unexpected integration/runner creation.
 5. Apply only the reviewed saved plan with `tofu apply tfplan`.
 
-Expected managed resources are the investigator and ticket coordinator, two daily budgets, their policy attachments, six runbook SOPs, and one six-stage investigation workflow. Keep the existing workflow/agent addresses stable during upgrades. Callers must now supply existing_jira_integration_name and jira_v2_tools.
+Expected managed resources are the investigator and ticket coordinator, two daily budgets, their policy attachments, seven runbook SOPs, and one seven-stage investigation workflow. Keep the existing workflow/agent addresses stable during upgrades. Callers must supply existing_jira_integration_name and jira_v2_tools. GitHub calls reuse remote_shell_tool_name and remote_runner_names; no GitHub integration input is needed.
 
 ## Verify
 
@@ -120,7 +123,8 @@ After apply:
 - Confirm there were no deletes or replacements.
 - Confirm the agent exposes the Ubuntu CLI integration, not a native Kubernetes integration.
 - Confirm exactly one remote runner is attached.
-- Confirm the workflow starts with `assess-ticket`, continues through `scope-investigation`, `collect-kubernetes-evidence`, `collect-jenkins-evidence`, and `synthesize-investigation`, and ends with `request-information`. Only the first and last stages bind to the ticket coordinator.
+- Confirm no GitHub integration is attached, and the rendered GitHub SOP names the configured shell tool, runner, and trusted hostname.
+- Confirm the workflow starts with `assess-ticket`, continues through `scope-investigation`, `collect-kubernetes-evidence`, `collect-jenkins-evidence`, `collect-github-evidence`, and `synthesize-investigation`, and ends with `request-information`. Synthesis waits for all three evidence stages. Only the first and last stages bind to the ticket coordinator.
 - Run the offline mocked plan tests with `terraform test` (Terraform 1.7+). OpenTofu 1.11.5 with StackGen 0.1.41 fails initialization for this mock suite, although `tofu validate` works. For an authorized runtime test, follow tests/clarification-cases.md at the repository root. Check API v2 requests, blocked evidence-stage behavior, targeted questions, and duplicate suppression. These are agent/tool behaviors, not guarantees from Terraform validation.
 - This module creates no webhook or reply-resumption rule. An external caller must invoke it again after developer replies, filter automation-authored comments, and serialize executions per ticket to reduce concurrent duplicate comments.
 - Do not run a live investigation unless the user also authorizes that execution.

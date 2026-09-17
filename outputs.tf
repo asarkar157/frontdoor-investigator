@@ -30,6 +30,7 @@ output "runbook_names" {
     scope               = sg_runbook_sop.scope.name
     kubernetes_evidence = sg_runbook_sop.kubernetes_evidence.name
     jenkins_evidence    = sg_runbook_sop.jenkins_evidence.name
+    github_evidence     = sg_runbook_sop.github_evidence.name
     synthesis           = sg_runbook_sop.synthesis.name
     request_information = sg_runbook_sop.request_information.name
   }
@@ -45,6 +46,11 @@ output "integration_names" {
 }
 
 output "remote_runner_names" {
-  description = "Remote runners used for every kubectl operation."
+  description = "Remote runner used for every Kubernetes and GitHub operation."
   value       = var.remote_runner_names
+}
+
+output "github_hostname" {
+  description = "GitHub API host used by the remote runner; this is not an integration."
+  value       = var.github_hostname
 }

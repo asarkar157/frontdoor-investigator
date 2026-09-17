@@ -31,10 +31,20 @@ resource "sg_runbook_sop" "synthesis" {
   description = trimspace(file("${path.module}/templates/synthesize-investigation.md"))
 }
 
+resource "sg_runbook_sop" "github_evidence" {
+  name    = "frontdoor-investigation-github${local.suffix}"
+  approve = true
+  description = trimspace(templatefile("${path.module}/templates/collect-github-evidence.md", {
+    github_hostname = var.github_hostname
+    shell_tool      = var.remote_shell_tool_name
+    runner_name     = one(var.remote_runner_names)
+  }))
+}
+
 resource "sg_workflow" "investigation" {
   name        = local.workflow_name
   domain      = "incident-response"
-  description = "Assess a Frontdoor ticket, investigate with read-only remote-runner kubectl and optional Jenkins, and request specific missing developer information through Jira API v2."
+  description = "Assess a Frontdoor ticket, investigate with read-only remote-runner kubectl and GitHub API calls plus optional Jenkins, and request specific missing developer information through Jira API v2."
   approve     = true
 
   metadata = {
@@ -50,6 +60,9 @@ resource "sg_workflow" "investigation" {
     "namespace",
     "time_window",
     "coordinator_context",
+    "github_repository",
+    "commit_sha",
+    "pull_request_number",
   ]
 
   runbook_refs = [
@@ -57,6 +70,7 @@ resource "sg_workflow" "investigation" {
     sg_runbook_sop.scope.name,
     sg_runbook_sop.kubernetes_evidence.name,
     sg_runbook_sop.jenkins_evidence.name,
+    sg_runbook_sop.github_evidence.name,
     sg_runbook_sop.synthesis.name,
     sg_runbook_sop.request_information.name,
   ]
@@ -85,6 +99,11 @@ resource "sg_workflow" "investigation" {
     {
       stage_id    = "collect-jenkins-evidence"
       description = "Collect read-only Jenkins evidence, or explicitly record that Jenkins is unavailable."
+      required    = true
+    },
+    {
+      stage_id    = "collect-github-evidence"
+      description = "Read scoped GitHub API evidence using gh api on the attached remote runner, or report not_applicable/unavailable."
       required    = true
     },
     {
@@ -128,9 +147,16 @@ resource "sg_workflow" "investigation" {
       note             = "Use only approved read-only Jenkins tools; return unavailable when Jenkins is not configured."
     },
     {
+      stage_id         = "collect-github-evidence"
+      agent_ref        = sg_agent.investigator.name
+      stage_depends_on = ["scope-investigation"]
+      runbook_refs     = [sg_runbook_sop.github_evidence.name]
+      note             = "Use only the configured remote-runner shell tool for GitHub REST GET requests; never discover or use a GitHub integration. Respect diagnostics_allowed."
+    },
+    {
       stage_id         = "synthesize-investigation"
       agent_ref        = sg_agent.investigator.name
-      stage_depends_on = ["collect-kubernetes-evidence", "collect-jenkins-evidence"]
+      stage_depends_on = ["collect-kubernetes-evidence", "collect-jenkins-evidence", "collect-github-evidence"]
       runbook_refs     = [sg_runbook_sop.synthesis.name]
       note             = "Return the investigation_report JSON contract defined by the investigator persona."
     },

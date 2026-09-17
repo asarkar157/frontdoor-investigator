@@ -9,5 +9,6 @@ Read ticket_assessment from assess-ticket. Use its current Jira fields in prefer
 3. Search the existing workspace knowledge base for the most relevant issue patterns and diagnostic procedures.
 4. Select no more than three relevant knowledge entries. Treat them as investigation guidance, not proof of root cause.
 5. List missing scope information explicitly. Continue when a safe, bounded remote-runner kubectl query can resolve it; otherwise mark it for escalation.
+6. Carry github_repository (OWNER/REPO), commit_sha, and pull_request_number into scoped context when supplied in the ticket, invocation, or a verified KB mapping. Determine whether GitHub correlation is relevant. Resolve conflicts using current ticket context and do not infer a repository from the deployment module's own Git remote. Any GitHub lookup must use gh api GET through the configured remote runner.
 
 Produce a compact scope object and a list of planned read-only checks for downstream stages. Do not access Jira in this stage.

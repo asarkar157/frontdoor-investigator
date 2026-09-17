@@ -66,7 +66,7 @@ variable "attach_data_risk_pii_policy" {
 }
 
 variable "existing_ubuntu_integration_name" {
-  description = "Name of the existing Ubuntu CLI integration used to run kubectl on the attached remote runner."
+  description = "Name of the existing Ubuntu CLI integration used for kubectl and GitHub API calls on the attached remote runner."
   type        = string
 
   validation {
@@ -82,7 +82,7 @@ variable "existing_jenkins_integration_name" {
 }
 
 variable "remote_shell_tool_name" {
-  description = "Exact Ubuntu CLI shell-tool name used for kubectl on the remote runner. Wildcards are rejected."
+  description = "Exact Ubuntu CLI shell-tool name used for kubectl and gh api on the remote runner. Wildcards are rejected."
   type        = string
 
   validation {
@@ -103,7 +103,7 @@ variable "jenkins_readonly_tool_names" {
 }
 
 variable "remote_runner_names" {
-  description = "A single existing remote runner whose shell environment contains kubectl and a read-only kubeconfig."
+  description = "A single existing remote runner with kubectl/read-only kubeconfig and gh with read-only GitHub authentication for repository evidence."
   type        = set(string)
 
   validation {
@@ -112,6 +112,22 @@ variable "remote_runner_names" {
       && alltrue([for name in var.remote_runner_names : trimspace(name) != ""])
     )
     error_message = "remote_runner_names must contain exactly one non-empty runner name."
+  }
+}
+
+variable "github_hostname" {
+  description = "Trusted GitHub hostname for remote-runner gh api calls; use the GitHub Enterprise hostname when applicable. No scheme, path, or credentials."
+  type        = string
+  default     = "github.com"
+
+  validation {
+    condition = (
+      length(var.github_hostname) <= 253
+      && alltrue([for label in split(".", var.github_hostname) :
+        can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", label))
+      ])
+    )
+    error_message = "github_hostname must be a lowercase DNS hostname without a scheme, port, path, or credentials."
   }
 }
 

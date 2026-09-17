@@ -9,8 +9,12 @@ locals {
 }
 
 resource "sg_agent" "investigator" {
-  name        = local.agent_name
-  persona     = file("${path.module}/personas/frontdoor-investigator.md")
+  name = local.agent_name
+  persona = templatefile("${path.module}/personas/frontdoor-investigator.md", {
+    github_hostname = var.github_hostname
+    shell_tool      = var.remote_shell_tool_name
+    runner_name     = one(var.remote_runner_names)
+  })
   model_names = compact(var.model_names)
 
   integrations   = local.integration_names

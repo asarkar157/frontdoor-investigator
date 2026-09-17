@@ -1,6 +1,6 @@
 # Synthesize Frontdoor Investigation
 
-Synthesize the scoped knowledge, Kubernetes evidence, and Jenkins evidence into the final investigation result.
+Synthesize the scoped knowledge, Kubernetes, Jenkins, and remote-runner GitHub evidence into the final investigation result. Wait for all evidence stages, including explicit unavailable/not_applicable results. Include GitHub findings as source github and remove questions answered by them.
 
 1. Keep observations separate from hypotheses.
 2. Rank no more than three hypotheses using direct evidence, contradictions, and missing checks.
