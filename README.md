@@ -1,6 +1,6 @@
 # Frontdoor Investigator Agent
 
-This module creates one Frontdoor investigation workflow with two agents. The ticket coordinator reads Jira and requests specific missing developer information. The investigator uses the remote runner for Kubernetes (`kubectl`) and GitHub REST API reads (`gh api`), and optionally reads Jenkins through its integration. No GitHub integration is created or attached.
+This module creates one Frontdoor investigation workflow with two agents. The ticket coordinator reads Jira and posts an outcome comment for every completed investigation, including successful findings, suggested remediation, and specific missing-information requests when needed. The investigator uses the remote runner for Kubernetes (`kubectl`) and GitHub REST API reads (`gh api`), and optionally reads Jenkins through its integration. No GitHub integration is created or attached.
 
 The Kubernetes, GitHub, and Jenkins identities must be read-only. The Jira identity needs permission to read the issue and comments and add comments. Personas and policies supplement integration permissions; they do not enforce endpoint selection or make a general-purpose tool read-only.
 
@@ -21,19 +21,23 @@ The workflow requires only `ticket_key`; it reads the current summary, descripti
 | collect-jenkins-evidence | Investigator | Jenkins evidence, unavailable, or blocked result |
 | collect-github-evidence | Investigator | Remote-runner GitHub API evidence, not_applicable, unavailable, or blocked result |
 | synthesize-investigation | Investigator | Diagnosis, unresolved questions, operator limitations |
-| request-information | Ticket coordinator | One clarification comment or explicit no-op/error |
+| request-information | Ticket coordinator | One outcome comment, confirmed same-run duplicate, or delivery error |
 
 Evidence stages depend on scoping; synthesis waits for all three. All stages execute, but the SOPs instruct evidence stages to make no tool calls when `diagnostics_allowed` is false. This is agent behavior, not a deterministic Terraform condition or a runtime authorization gate.
 
-## Clarification behavior
+## Final Jira update
 
 The assessment checks whether the next diagnostic step is possible, not whether every form field is filled in. It uses issue-specific KB guidance and current comments. The investigator attempts to resolve discoverable gaps before asking the developer. Missing integrations, permission errors, or an offline runner are reported separately as operator limitations.
 
-The final stage rechecks current comments and asks up to five concrete blocking questions, with a reason and expected answer format. Example: "Which Jenkins job and build number failed? A build URL is sufficient; it identifies the failing stage and logs." It does not request information already answered or repeat outstanding asks. A completed diagnosis does not generate a clarification comment.
+The final stage always prepares an outcome comment, not just clarification requests. Successful investigations post the scope, diagnosis/confidence, key evidence references, suggested remediation with owner/approval requirements, and verification steps. The comment explicitly states that no remediation was executed. Inconclusive investigations post known findings and limitations; operator blockers are not blamed on missing developer context. Closed tickets receive an informational summary without requests for action or status changes.
 
-Comments carry `[frontdoor-clarification:v1]`. The agent checks semantic duplicates and rereads before writing. This reduces duplicates but is not an atomic exactly-once guarantee: the caller should serialize executions per ticket. After an uncertain POST result, it checks for the comment and never blindly retries.
+When developer input is needed, the same comment includes up to five new blocking questions with reasons and answer examples. Already-answered or previously requested questions are not repeated; a waiting-status update references the earlier clarification instead. New replies that invalidate findings produce a status update explaining that reinvestigation is needed, not a stale recommendation.
 
-Replies are considered on the next invocation; this module does not automatically resume after a reply. The caller can invoke it again for developer updates and should filter out comments authored by the automation account to avoid loops. Final output preserves `investigation_report` alongside `clarification_result` (posted, not_needed, already_requested, ready_to_reinvestigate, deferred, delivery_unknown, or integration_error).
+Comments carry `[frontdoor-investigation:v1]`. Supply optional workflow input `execution_id` (1-128 ASCII letters, digits, dots, underscores, or hyphens), reused for retries but unique for each distinct investigation. The coordinator otherwise uses a stable platform execution ID if exposed. A confirmed automation comment with the same execution marker suppresses a retry, but similar findings from another run do not suppress a new update. Without a stable ID, cross-invocation deduplication is not guaranteed. Serialize executions per ticket: read-before-write checks are not atomic. On an uncertain POST result the agent checks for delivery and never blindly retries.
+
+Replies are considered on the next invocation; this module does not automatically resume after a reply. Filter automation-authored comments to avoid loops. Final output preserves `investigation_report` alongside the legacy `clarification_result` key, now with delivery status `posted`, `already_posted`, `delivery_unknown`, or `integration_error`, plus `comment_body`, `comment_type`, `execution_id`, and a `ready_to_reinvestigate` boolean. Callers consuming the old no-op statuses must update. Jira read/write failures, incompatible tools, invalid upstream output, or workflow termination before the final stage can prevent posting; this is an agent instruction, not guaranteed delivery or a platform failure handler.
+
+The seven stage IDs, two agents, SOP resource names, and Terraform addresses remain unchanged. The legacy `request-information` stage now handles all final outcome comments.
 
 ## Usage
 

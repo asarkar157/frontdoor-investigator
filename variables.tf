@@ -9,7 +9,7 @@ variable "model_names" {
 }
 
 variable "existing_jira_integration_name" {
-  description = "Existing Jira integration attached only to the ticket coordinator for reading tickets and adding clarification comments."
+  description = "Existing Jira integration attached only to the ticket coordinator for reading tickets and posting investigation outcome comments."
   type        = string
 
   validation {

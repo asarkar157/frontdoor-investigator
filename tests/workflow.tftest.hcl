@@ -47,12 +47,30 @@ run "isolated_permissions_and_stage_handoff" {
         "collect-kubernetes-evidence", "collect-jenkins-evidence", "collect-github-evidence"
       ])
     )
-    error_message = "Assessment must precede investigation and clarification must follow synthesis on the Jira-only agent."
+    error_message = "Assessment must precede investigation and final Jira communication must follow synthesis on the Jira-only agent."
   }
 
   assert {
     condition     = toset(sg_workflow.investigation.required_inputs) == toset(["ticket_key"])
     error_message = "A sparse ticket must be invocable using its key so Jira can supply the current content."
+  }
+}
+
+run "final_outcome_comment_contract" {
+  command   = plan
+  providers = { sg = sg.offline }
+
+  assert {
+    condition = (
+      contains(sg_workflow.investigation.optional_inputs, "execution_id")
+      && contains(sg_agent.ticket_coordinator.hitl.always_allowed, "test-jira_add_comment")
+      && toset(one([for binding in sg_workflow.investigation.stage_bindings : binding
+      if binding.stage_id == "request-information"]).runbook_refs) == toset([sg_runbook_sop.request_information.name])
+      && sg_runbook_sop.request_information.name == "frontdoor-request-information"
+      && sg_runbook_sop.request_information.description == trimspace(file("${path.module}/templates/request-information.md"))
+      && strcontains(sg_agent.ticket_coordinator.persona, "test-jira_add_comment")
+    )
+    error_message = "The final outcome SOP must render on the existing Jira-authorized coordinator with stable resource names and optional retry identity. Runtime behavior requires acceptance tests."
   }
 }
 

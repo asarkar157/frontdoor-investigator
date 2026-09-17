@@ -9,7 +9,7 @@ output "agent_name" {
 }
 
 output "coordinator_agent_name" {
-  description = "Jira-facing coordinator bound to assessment and clarification stages."
+  description = "Jira-facing coordinator bound to assessment and final outcome-comment stages."
   value       = sg_agent.ticket_coordinator.name
 }
 

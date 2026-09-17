@@ -44,7 +44,7 @@ resource "sg_runbook_sop" "github_evidence" {
 resource "sg_workflow" "investigation" {
   name        = local.workflow_name
   domain      = "incident-response"
-  description = "Assess a Frontdoor ticket, investigate with read-only remote-runner kubectl and GitHub API calls plus optional Jenkins, and request specific missing developer information through Jira API v2."
+  description = "Assess a Frontdoor ticket, investigate with read-only remote-runner kubectl and GitHub API calls plus optional Jenkins, and post findings, suggested remediation, or specific information requests through Jira API v2."
   approve     = true
 
   metadata = {
@@ -53,6 +53,7 @@ resource "sg_workflow" "investigation" {
 
   required_inputs = ["ticket_key"]
   optional_inputs = [
+    "execution_id",
     "ticket_summary",
     "ticket_description",
     "service",
@@ -113,7 +114,7 @@ resource "sg_workflow" "investigation" {
     },
     {
       stage_id    = "request-information"
-      description = "Recheck current Jira v2 comments and post only new, unanswered developer questions that block investigation. Otherwise return a no-op result."
+      description = "Post a Jira v2 outcome comment for every completed investigation, including successful findings, suggested remediation, operator blockers, or new blocking developer questions."
       required    = true
     },
   ]
@@ -165,7 +166,7 @@ resource "sg_workflow" "investigation" {
       agent_ref        = sg_agent.ticket_coordinator.name
       stage_depends_on = ["synthesize-investigation"]
       runbook_refs     = [sg_runbook_sop.request_information.name]
-      note             = "Use ticket_assessment and investigation_report; preserve the report in final output alongside clarification_result. Post at most one Jira v2 clarification comment per execution."
+      note             = "Use ticket_assessment and investigation_report; preserve the report in final output alongside clarification_result. Post one Jira v2 outcome comment even when diagnosed or no questions remain. Use execution_id when supplied for same-run retry deduplication; never blindly retry an uncertain POST."
     },
   ]
 }
